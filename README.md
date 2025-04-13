@@ -5,6 +5,7 @@ A simple, efficient API for creating shortened URLs with unique codes. Built wit
 ## Features
 
 - Create shortened URLs via GET request
+- Batch processing for multiple URLs via POST request
 - Check and return existing URLs to avoid duplicates
 - Configurable base domain via environment variables
 - Statistics for URL usage
@@ -49,7 +50,7 @@ pm2 start ecosystem.config.js
 
 ### API Endpoints
 
-#### Shorten a URL
+#### Shorten a Single URL
 ```
 GET /api/shorten?url=https://example.com/very-long-url
 ```
@@ -61,6 +62,41 @@ Response:
   "shortUrl": "https://your-domain.com/abc123",
   "shortCode": "abc123"
 }
+```
+
+#### Shorten Multiple URLs (Batch Processing)
+```
+POST /api/shorten/batch
+```
+
+Request Body:
+```json
+[
+  "https://example.com/very-long-url-1",
+  "https://example.com/very-long-url-2",
+  "https://another-example.com/long-url"
+]
+```
+
+Response:
+```json
+[
+  {
+    "originalUrl": "https://example.com/very-long-url-1",
+    "shortUrl": "https://your-domain.com/abc123",
+    "shortCode": "abc123"
+  },
+  {
+    "originalUrl": "https://example.com/very-long-url-2",
+    "shortUrl": "https://your-domain.com/def456",
+    "shortCode": "def456"
+  },
+  {
+    "originalUrl": "https://another-example.com/long-url",
+    "shortUrl": "https://your-domain.com/ghi789",
+    "shortCode": "ghi789"
+  }
+]
 ```
 
 #### Access URL statistics
