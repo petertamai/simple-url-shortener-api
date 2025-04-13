@@ -269,7 +269,7 @@ async function startServer() {
     console.log(`URL Shortener API running on port ${PORT}`);
     console.log(`Base domain: ${BASE_DOMAIN}`);
   });
-}
+}  
 
 startServer().catch(err => {
   console.error('Failed to start server:', err);

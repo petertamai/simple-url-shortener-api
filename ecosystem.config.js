@@ -16,4 +16,4 @@ module.exports = {
       out_file: './logs/pm2-out.log',
       time: true
     }]
-  };
+  }; 
