@@ -90,6 +90,52 @@ async function generateUniqueCode() {
   return code;
 }
 
+// Helper function to process a single URL
+async function processSingleUrl(originalUrl) {
+  if (!originalUrl) {
+    return { error: 'URL is required' };
+  }
+  
+  // Check if URL is valid
+  try {
+    new URL(originalUrl);
+  } catch (err) {
+    return { error: 'Invalid URL format', originalUrl };
+  }
+  
+  // Check if URL already exists in database
+  const existingUrl = await db.get(
+    'SELECT short_code FROM urls WHERE original_url = ?', 
+    originalUrl
+  );
+  
+  if (existingUrl) {
+    const shortUrl = `${BASE_DOMAIN}/${existingUrl.short_code}`;
+    return { 
+      originalUrl, 
+      shortUrl,
+      shortCode: existingUrl.short_code
+    };
+  }
+  
+  // Generate a unique short code
+  const shortCode = await generateUniqueCode();
+  
+  // Insert the new URL into the database
+  await db.run(
+    'INSERT INTO urls (original_url, short_code) VALUES (?, ?)',
+    [originalUrl, shortCode]
+  );
+  
+  const shortUrl = `${BASE_DOMAIN}/${shortCode}`;
+  
+  return { 
+    originalUrl, 
+    shortUrl,
+    shortCode
+  };
+}
+
 // Routes
 app.get('/api/shorten', async (req, res, next) => {
   try {
@@ -102,47 +148,55 @@ app.get('/api/shorten', async (req, res, next) => {
       });
     }
     
-    // Check if URL is valid
-    try {
-      new URL(originalUrl);
-    } catch (err) {
+    const result = await processSingleUrl(originalUrl);
+    
+    if (result.error) {
       return res.status(400).json({ 
         error: 'Bad Request', 
-        message: 'Invalid URL format' 
+        message: result.error 
       });
     }
     
-    // Check if URL already exists in database
-    const existingUrl = await db.get(
-      'SELECT short_code FROM urls WHERE original_url = ?', 
-      originalUrl
-    );
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Batch URL shortening endpoint
+app.post('/api/shorten/batch', express.json(), async (req, res, next) => {
+  try {
+    const urls = req.body;
     
-    if (existingUrl) {
-      const shortUrl = `${BASE_DOMAIN}/${existingUrl.short_code}`;
-      return res.json({ 
-        originalUrl, 
-        shortUrl,
-        shortCode: existingUrl.short_code
+    if (!Array.isArray(urls)) {
+      return res.status(400).json({ 
+        error: 'Bad Request', 
+        message: 'Request body must be an array of URLs' 
       });
     }
     
-    // Generate a unique short code
-    const shortCode = await generateUniqueCode();
+    if (urls.length === 0) {
+      return res.status(400).json({ 
+        error: 'Bad Request', 
+        message: 'At least one URL is required' 
+      });
+    }
     
-    // Insert the new URL into the database
-    await db.run(
-      'INSERT INTO urls (original_url, short_code) VALUES (?, ?)',
-      [originalUrl, shortCode]
+    // Limit batch size for performance reasons
+    if (urls.length > 100) {
+      return res.status(400).json({ 
+        error: 'Bad Request', 
+        message: 'Maximum batch size is 100 URLs' 
+      });
+    }
+    
+    const results = await Promise.all(
+      urls.map(async (url) => {
+        return await processSingleUrl(url);
+      })
     );
     
-    const shortUrl = `${BASE_DOMAIN}/${shortCode}`;
-    
-    res.json({ 
-      originalUrl, 
-      shortUrl,
-      shortCode
-    });
+    res.json(results);
   } catch (error) {
     next(error);
   }
